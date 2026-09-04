@@ -29,11 +29,22 @@ const products = [
 ];
 
 function App() {
+  const [selectedProduct, setSelectedProduct] = useState(null);
   const [cart, setCart] = useState([]);
 
   const addToCart = (product) => {
     setCart([...cart, product]);
   };
+
+  if (selectedProduct) {
+    return (
+      <ProductDetails
+        product={selectedProduct}
+        onBack={() => setSelectedProduct(null)}
+        addToCart={addToCart}
+      />
+    );
+  }
 
   return (
     <div className="app" dir="rtl">
@@ -107,14 +118,19 @@ function App() {
 
           <div className="products-grid">
             {products.map((product) => (
-              <article className="product-card" key={product.id}>
+              <article
+                className="product-card"
+                key={product.id}
+                onClick={() => setSelectedProduct(product)}
+                style={{ cursor: "pointer" }}
+              >
                 <div className="product-icon">{product.icon}</div>
 
                 <h3>{product.name}</h3>
 
                 <p>{product.description}</p>
 
-                <button onClick={() => addToCart(product)}>
+                <button onClick={(e) => { e.stopPropagation(); addToCart(product); }}>
                   استعرض القسم ←
                 </button>
               </article>
