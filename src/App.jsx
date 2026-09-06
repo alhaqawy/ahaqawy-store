@@ -1,48 +1,8 @@
-import { useState } from "react";
+import React from "react";
 import "./App.css";
+import { supabase } from "./supabase";
 
-const products = [
-  {
-    id: 1,
-    name: "بطاقة Google Play",
-    category: "بطاقات",
-    description: "شحن رصيد حسابك بكل سهولة",
-    price: 50,
-    icon: "▶️",
-    badge: "الأكثر مبيعاً",
-    badgeType: "green",
-  },
-  {
-    id: 2,
-    name: "بطاقة Apple",
-    category: "بطاقات",
-    description: "للمتجر السعودي والأمريكي",
-    price: 50,
-    icon: "",
-    badge: "مميز",
-    badgeType: "purple",
-  },
-  {
-    id: 3,
-    name: "اشتراك Netflix",
-    category: "اشتراكات",
-    description: "شاهد أقوى الأفلام والمسلسلات",
-    price: 50,
-    icon: "N",
-    badge: "خصم",
-    badgeType: "red",
-  },
-  {
-    id: 4,
-    name: "بطاقة PlayStation",
-    category: "ألعاب",
-    description: "شحن رصيد بلايستيشن",
-    price: 50,
-    icon: "▶",
-    badge: "جديد",
-    badgeType: "blue",
-  },
-];
+const products = [];
 
 const categories = [
   { name: "المزيد", icon: "▦" },
@@ -53,9 +13,46 @@ const categories = [
 ];
 
 function App() {
-  const [cart, setCart] = useState([]);
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [menuOpen, setMenuOpen] = useState(false);
+
+  const [storeProducts, setStoreProducts] = React.useState([]);
+  const [productsLoading, setProductsLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    let mounted = true;
+
+    async function loadProducts() {
+      const { data, error } = await supabase
+        .from("products")
+        .select("id,name,category,icon,description,price,image_url,is_active,stock,created_at")
+        .eq("is_active", true)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("STORE PRODUCTS ERROR:", error);
+        if (mounted) {
+          setStoreProducts([]);
+          setProductsLoading(false);
+        }
+        return;
+      }
+
+      if (mounted) {
+        setStoreProducts(data || []);
+        setProductsLoading(false);
+      }
+    }
+
+    loadProducts();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+
+  const [cart, setCart] = React.useState([]);
+  const [selectedProduct, setSelectedProduct] = React.useState(null);
+  const [menuOpen, setMenuOpen] = React.useState(false);
 
   const addToCart = (product) => {
     setCart((current) => [...current, product]);
@@ -211,7 +208,7 @@ function App() {
           </div>
 
           <div className="products-mobile" id="products">
-            {products.map((product) => (
+            {storeProducts.map((product) => (
               <article
                 className="mobile-product-card"
                 key={product.id}
