@@ -130,23 +130,6 @@ export default function AdminDashboard({ onExit }) {
     };
   }, []);
 
-  if (adminChecking) {
-    return <div dir="rtl" style={{ padding: "40px", textAlign: "center" }}>جاري التحقق...</div>;
-  }
-
-  if (!adminAllowed) {
-    return (
-      <div dir="rtl" style={{ padding: "40px", textAlign: "center" }}>
-        <h2>غير مصرح</h2>
-        <p>هذه الصفحة متاحة للمشرف فقط.</p>
-        {onExit && (
-          <button type="button" onClick={onExit}>العودة</button>
-        )}
-      </div>
-    );
-  }
-
-
   const [active, setActive] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
@@ -214,6 +197,22 @@ export default function AdminDashboard({ onExit }) {
   useEffect(() => {
     loadData();
   }, []);
+
+  if (adminChecking) {
+    return <div dir="rtl" style={{ padding: "40px", textAlign: "center" }}>جاري التحقق...</div>;
+  }
+
+  if (!adminAllowed) {
+    return (
+      <div dir="rtl" style={{ padding: "40px", textAlign: "center" }}>
+        <h2>غير مصرح</h2>
+        <p>هذه الصفحة متاحة للمشرف فقط.</p>
+        {onExit && (
+          <button type="button" onClick={onExit}>العودة</button>
+        )}
+      </div>
+    );
+  }
 
   const activeProducts = products.filter((p) => p.is_active);
   const hiddenProducts = products.filter((p) => !p.is_active);
