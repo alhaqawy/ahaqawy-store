@@ -1140,7 +1140,34 @@ function renderPlaceholder() {
           </aside>
         )}
 
-        <main style={{ flex: 1, minWidth: 0 }}>
+        
+      <button
+        type="button"
+        onClick={async () => {
+          await supabase.auth.signOut();
+          window.location.reload();
+        }}
+        style={{
+position: "fixed",
+          top: "20px",
+          left: "50%",
+          
+          padding: "10px 18px",
+          borderRadius: "10px",
+          border: "none",
+          cursor: "pointer",
+          background: "#ef4444",
+          color: "#fff",
+          fontWeight: "600",
+              transform: "translateX(-50%)",
+              zIndex: 9999,
+            }}
+      >
+        تسجيل الخروج
+      </button>
+
+<main style={{ flex: 1, minWidth: 0 }}>
+          
           <header
             style={{
               height: 70,
