@@ -1,6 +1,8 @@
 import React from "react";
 import "./App.css";
 import { supabase } from "./supabase";
+import Login from "./Login.jsx";
+import AdminDashboard from "./AdminDashboard.jsx";
 
 const products = [];
 
@@ -53,10 +55,124 @@ function App() {
   const [cart, setCart] = React.useState([]);
   const [selectedProduct, setSelectedProduct] = React.useState(null);
   const [menuOpen, setMenuOpen] = React.useState(false);
+  const [session, setSession] = React.useState(null);
+  const [user, setUser] = React.useState(null);
+  const [profile, setProfile] = React.useState(null);
+  const [showLogin, setShowLogin] = React.useState(false);
+  const [showAdmin, setShowAdmin] = React.useState(false);
+  const [showAccount, setShowAccount] = React.useState(false);
+
+
+  React.useEffect(() => {
+    let mounted = true;
+
+    async function loadAuth() {
+      const { data } = await supabase.auth.getSession();
+
+      if (!mounted) return;
+
+      const currentSession = data?.session ?? null;
+      const currentUser = currentSession?.user ?? null;
+
+      setSession(currentSession);
+      setUser(currentUser);
+
+      if (currentUser) {
+        const { data: profileData, error } = await supabase
+          .from("profiles")
+          .select(
+            "id,full_name,phone,email,account_type,is_active,is_admin,created_at,last_login_at,notes"
+          )
+          .eq("id", currentUser.id)
+          .maybeSingle();
+
+        if (mounted) {
+          if (error) {
+            console.error("PROFILE LOAD ERROR:", error);
+            setProfile(null);
+          } else {
+            setProfile(profileData || null);
+          }
+        }
+      } else {
+        setProfile(null);
+      }
+    }
+
+    loadAuth();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
+      if (!mounted) return;
+
+      setSession(nextSession ?? null);
+      setUser(nextSession?.user ?? null);
+
+      if (!nextSession?.user) {
+        setProfile(null);
+        setShowAdmin(false);
+        return;
+      }
+
+      const { data: profileData, error } = await supabase
+        .from("profiles")
+        .select(
+          "id,full_name,phone,email,account_type,is_active,is_admin,created_at,last_login_at,notes"
+        )
+        .eq("id", nextSession.user.id)
+        .maybeSingle();
+
+      if (!mounted) return;
+
+      if (error) {
+        console.error("PROFILE LOAD ERROR:", error);
+        setProfile(null);
+      } else {
+        setProfile(profileData || null);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    setSession(null);
+    setUser(null);
+    setProfile(null);
+    setShowAdmin(false);
+    setShowAccount(false);
+  }
+
+  function handleAccountClick() {
+    if (!user) {
+      setShowLogin(true);
+      return;
+    }
+
+    if (profile?.is_admin === true) {
+      setShowAdmin(true);
+      return;
+    }
+
+    setShowAccount(true);
+  }
 
   const addToCart = (product) => {
     setCart((current) => [...current, product]);
   };
+
+  if (showAdmin) {
+    return (
+      <AdminDashboard
+        onExit={() => setShowAdmin(false)}
+      />
+    );
+  }
 
   if (selectedProduct) {
     return (
@@ -276,6 +392,94 @@ function App() {
         </section>
       </main>
 
+      {showAccount && user && (
+        <div
+          dir="rtl"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9998,
+            background: "#fff",
+            padding: "30px 20px",
+            boxSizing: "border-box",
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setShowAccount(false)}
+            style={{
+              border: 0,
+              background: "none",
+              fontSize: "24px",
+              cursor: "pointer",
+            }}
+          >
+            ×
+          </button>
+
+          <div style={{ textAlign: "center", marginTop: "30px" }}>
+            <div style={{ fontSize: "48px" }}>♙</div>
+            <h2>حسابي</h2>
+
+            <p style={{ direction: "rtl", lineHeight: 1.8 }}>
+              <strong>
+                {profile?.full_name ||
+                  user.user_metadata?.full_name ||
+                  "العميل"}
+              </strong>
+              <br />
+              {profile?.phone ||
+                user.user_metadata?.phone ||
+                ""}
+              <br />
+              {profile?.email || user.email || ""}
+              <br />
+              الحالة:{" "}
+              {profile?.is_active === false
+                ? "غير نشط"
+                : "نشط"}
+            </p>
+
+            {profile?.is_admin === true && (
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() => {
+                  setShowAccount(false);
+                  setShowAdmin(true);
+                }}
+                style={{
+                  width: "100%",
+                  maxWidth: "360px",
+                  marginBottom: "10px",
+                }}
+              >
+                لوحة التحكم
+              </button>
+            )}
+
+            <button
+              type="button"
+              className="primary-button"
+              onClick={handleLogout}
+              style={{
+                width: "100%",
+                maxWidth: "360px",
+              }}
+            >
+              تسجيل الخروج
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showLogin && (
+        <Login
+          onClose={() => setShowLogin(false)}
+          onSuccess={() => setShowLogin(false)}
+        />
+      )}
+
       <nav className="bottom-nav">
         <button>
           <span>•••</span>
@@ -297,7 +501,7 @@ function App() {
           المفضلة
         </button>
 
-        <button>
+        <button type="button" onClick={handleAccountClick}>
           <span>♙</span>
           حسابي
         </button>

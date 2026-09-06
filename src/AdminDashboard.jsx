@@ -35,6 +35,8 @@ const emptyProduct = {
 };
 
 function Card({ children, style = {} }) {
+
+
   return (
     <div
       style={{
@@ -97,38 +99,6 @@ export default function AdminDashboard({ onExit }) {
   const [adminChecking, setAdminChecking] = useState(true);
   const [adminAllowed, setAdminAllowed] = useState(false);
 
-  useEffect(() => {
-    let mounted = true;
-
-    const checkAdmin = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (!user) {
-        if (mounted) {
-          setAdminAllowed(false);
-          setAdminChecking(false);
-        }
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("is_admin")
-        .eq("id", user.id)
-        .single();
-
-      if (mounted) {
-        setAdminAllowed(!error && data?.is_admin === true);
-        setAdminChecking(false);
-      }
-    };
-
-    checkAdmin();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   const [active, setActive] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -145,6 +115,8 @@ export default function AdminDashboard({ onExit }) {
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [productForm, setProductForm] = useState(emptyProduct);
+
+
 
   async function loadData() {
     setLoading(true);
@@ -198,21 +170,7 @@ export default function AdminDashboard({ onExit }) {
     loadData();
   }, []);
 
-  if (adminChecking) {
-    return <div dir="rtl" style={{ padding: "40px", textAlign: "center" }}>جاري التحقق...</div>;
-  }
 
-  if (!adminAllowed) {
-    return (
-      <div dir="rtl" style={{ padding: "40px", textAlign: "center" }}>
-        <h2>غير مصرح</h2>
-        <p>هذه الصفحة متاحة للمشرف فقط.</p>
-        {onExit && (
-          <button type="button" onClick={onExit}>العودة</button>
-        )}
-      </div>
-    );
-  }
 
   const activeProducts = products.filter((p) => p.is_active);
   const hiddenProducts = products.filter((p) => !p.is_active);
