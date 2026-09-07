@@ -56,6 +56,7 @@ function App() {
   const [cartOpen, setCartOpen] = React.useState(false);
   const [paymentMethod, setPaymentMethod] = React.useState("");
   const [selectedProduct, setSelectedProduct] = React.useState(null);
+  const [productQuantity, setProductQuantity] = React.useState(1);
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [session, setSession] = React.useState(null);
   const [user, setUser] = React.useState(null);
@@ -382,56 +383,324 @@ function App() {
 
   if (selectedProduct) {
     return (
-      <div className="mobile-store" dir="rtl">
-        <header className="mobile-header">
-          <button
-            className="icon-button"
-            onClick={() => setSelectedProduct(null)}
+      <div
+        dir="rtl"
+        style={{
+          minHeight: "100vh",
+          background: "linear-gradient(135deg, #f7f9fc 0%, #eef3ff 100%)",
+          padding: "24px 16px 40px",
+          fontFamily: "inherit",
+        }}
+      >
+        <div style={{ maxWidth: 760, margin: "0 auto" }}>
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 20,
+            }}
           >
-            ←
-          </button>
+            <button
+              onClick={() => setSelectedProduct(null)}
+              style={{
+                width: 44,
+                height: 44,
+                border: "1px solid #e5e7eb",
+                borderRadius: 14,
+                background: "#fff",
+                fontSize: 22,
+                cursor: "pointer",
+              }}
+            >
+              ←
+            </button>
 
-          <div className="brand">
-            <div className="brand-icon">🛍️</div>
-            <strong>متجرنا</strong>
-          </div>
-
-          <div className="header-spacer" />
-        </header>
-
-        <main className="product-details">
-          <button
-            className="back-link"
-            onClick={() => setSelectedProduct(null)}
-          >
-            → العودة للمنتجات
-          </button>
-
-          <div className="details-card">
-            <div className="details-image">
-              <span>{selectedProduct.icon}</span>
-            </div>
-
-            <div className="details-category">
-              {selectedProduct.category}
-            </div>
-
-            <h1>{selectedProduct.name}</h1>
-
-            <p>{selectedProduct.description}</p>
-
-            <div className="details-price">
-              SAR {selectedProduct.price}
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 13, color: "#64748b" }}>
+                متجرنا
+              </div>
+              <strong style={{ fontSize: 19, color: "#111827" }}>
+                تفاصيل المنتج
+              </strong>
             </div>
 
             <button
-              className="primary-button details-cart"
-              onClick={() => addToCart(selectedProduct)}
+              style={{
+                width: 44,
+                height: 44,
+                border: "1px solid #e5e7eb",
+                borderRadius: 14,
+                background: "#fff",
+                fontSize: 20,
+                color: "#64748b",
+              }}
             >
-              🛒 أضف للسلة
+              ♡
             </button>
           </div>
-        </main>
+
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 28,
+              overflow: "hidden",
+              boxShadow: "0 18px 50px rgba(15,23,42,.10)",
+              border: "1px solid #e2e8f0",
+            }}
+          >
+
+            <div
+              style={{
+                height: 300,
+                background: "linear-gradient(135deg,#f8fafc,#eef2ff)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                position: "relative",
+              }}
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  top: 18,
+                  right: 18,
+                  padding: "7px 12px",
+                  borderRadius: 999,
+                  background: "#dcfce7",
+                  color: "#15803d",
+                  fontSize: 12,
+                  fontWeight: 700,
+                }}
+              >
+                متوفر
+              </div>
+
+              {selectedProduct.image_url ? (
+                <img
+                  src={selectedProduct.image_url}
+                  alt={selectedProduct.name}
+                  style={{
+                    width: "72%",
+                    height: "72%",
+                    objectFit: "contain",
+                    borderRadius: 22,
+                  }}
+                />
+              ) : (
+                <div style={{ fontSize: 105 }}>
+                  {selectedProduct.icon}
+                </div>
+              )}
+            </div>
+
+            <div style={{ padding: "26px 22px 24px" }}>
+
+              <div
+                style={{
+                  display: "inline-block",
+                  padding: "6px 11px",
+                  borderRadius: 10,
+                  background: "#eef2ff",
+                  color: "#4f46e5",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  marginBottom: 12,
+                }}
+              >
+                {selectedProduct.category}
+              </div>
+
+              <h1
+                style={{
+                  margin: "0 0 10px",
+                  color: "#111827",
+                  fontSize: 27,
+                  lineHeight: 1.35,
+                  fontWeight: 800,
+                }}
+              >
+                {selectedProduct.name}
+              </h1>
+
+              <p
+                style={{
+                  margin: "0 0 22px",
+                  color: "#64748b",
+                  fontSize: 15,
+                  lineHeight: 1.8,
+                }}
+              >
+                {selectedProduct.description || "منتج مميز متوفر في متجرنا."}
+              </p>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3,1fr)",
+                  gap: 10,
+                  marginBottom: 22,
+                }}
+              >
+                <div style={{ background:"#f8fafc", borderRadius:15, padding:13, textAlign:"center" }}>
+                  <div style={{ fontSize:20 }}>⚡</div>
+                  <small style={{ color:"#475569" }}>تسليم فوري</small>
+                </div>
+
+                <div style={{ background:"#f8fafc", borderRadius:15, padding:13, textAlign:"center" }}>
+                  <div style={{ fontSize:20 }}>🔒</div>
+                  <small style={{ color:"#475569" }}>دفع آمن</small>
+                </div>
+
+                <div style={{ background:"#f8fafc", borderRadius:15, padding:13, textAlign:"center" }}>
+                  <div style={{ fontSize:20 }}>✓</div>
+                  <small style={{ color:"#475569" }}>جودة مضمونة</small>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  background: "linear-gradient(135deg,#f8faff,#eef2ff)",
+                  borderRadius: 20,
+                  padding: 18,
+                  marginBottom: 16,
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 14,
+                  }}
+                >
+                  <div>
+                    <div style={{ color:"#64748b", fontSize:12, marginBottom:5 }}>
+                      السعر
+                    </div>
+                    <strong style={{ color:"#312e81", fontSize:25 }}>
+                      SAR {Number(selectedProduct.price || 0).toFixed(2)}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <div style={{ color:"#64748b", fontSize:12, marginBottom:5, textAlign:"center" }}>
+                      الكمية
+                    </div>
+
+                    <div
+                      style={{
+                        display:"flex",
+                        alignItems:"center",
+                        gap:13,
+                        background:"#fff",
+                        borderRadius:14,
+                        padding:5,
+                        border:"1px solid #e2e8f0",
+                      }}
+                    >
+                      <button
+                        onClick={() => setProductQuantity((q) => Math.max(1, q - 1))}
+                        style={{
+                          width:34,
+                          height:34,
+                          border:0,
+                          borderRadius:10,
+                          background:"#eef2ff",
+                          color:"#4338ca",
+                          fontSize:20,
+                          fontWeight:700,
+                        }}
+                      >
+                        −
+                      </button>
+
+                      <strong style={{ minWidth:20, textAlign:"center" }}>
+                        {productQuantity}
+                      </strong>
+
+                      <button
+                        onClick={() => setProductQuantity((q) => q + 1)}
+                        style={{
+                          width:34,
+                          height:34,
+                          border:0,
+                          borderRadius:10,
+                          background:"#eef2ff",
+                          color:"#4338ca",
+                          fontSize:20,
+                          fontWeight:700,
+                        }}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display:"flex",
+                  justifyContent:"space-between",
+                  alignItems:"center",
+                  marginBottom:16,
+                }}
+              >
+                <span style={{ color:"#64748b", fontSize:14 }}>
+                  الإجمالي
+                </span>
+
+                <strong style={{ color:"#111827", fontSize:20 }}>
+                  SAR {(Number(selectedProduct.price || 0) * productQuantity).toFixed(2)}
+                </strong>
+              </div>
+
+              <button
+                onClick={() => {
+                  for (let i = 0; i < productQuantity; i++) {
+                    addToCart(selectedProduct);
+                  }
+                  setSelectedProduct(null);
+                  setProductQuantity(1);
+                }}
+                style={{
+                  width:"100%",
+                  minHeight:56,
+                  border:0,
+                  borderRadius:17,
+                  background:"linear-gradient(135deg,#4f46e5,#6366f1)",
+                  color:"#fff",
+                  fontSize:17,
+                  fontWeight:800,
+                  cursor:"pointer",
+                  boxShadow:"0 10px 24px rgba(79,70,229,.25)",
+                }}
+              >
+                🛒 إضافة إلى السلة
+              </button>
+
+            </div>
+          </div>
+
+          <div
+            style={{
+              display:"flex",
+              justifyContent:"center",
+              gap:22,
+              flexWrap:"wrap",
+              marginTop:20,
+              color:"#64748b",
+              fontSize:12,
+            }}
+          >
+            <span>⚡ تسليم فوري</span>
+            <span>🔐 معاملات مشفرة</span>
+            <span>💬 دعم فني</span>
+          </div>
+
+        </div>
       </div>
     );
   }
@@ -538,7 +807,7 @@ function App() {
               <article
                 className="mobile-product-card"
                 key={product.id}
-                onClick={() => setSelectedProduct(product)}
+                onClick={() => { setProductQuantity(1); setSelectedProduct(product); }}
               >
                 <span className={`product-badge ${product.badgeType}`}>
                   {product.badge}
