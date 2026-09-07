@@ -53,6 +53,8 @@ function App() {
 
 
   const [cart, setCart] = React.useState([]);
+  const [cartOpen, setCartOpen] = React.useState(false);
+  const [paymentMethod, setPaymentMethod] = React.useState("");
   const [selectedProduct, setSelectedProduct] = React.useState(null);
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [session, setSession] = React.useState(null);
@@ -166,6 +168,210 @@ function App() {
     setCart((current) => [...current, product]);
   };
 
+  const [paymentLoading, setPaymentLoading] = React.useState(false);
+  const [paymentError, setPaymentError] = React.useState("");
+  const [moyasarOpen, setMoyasarOpen] = React.useState(false);
+  const [moyasarOrder, setMoyasarOrder] = React.useState(null);
+
+  async function handlePayment() {
+    if (!user) {
+      setPaymentError("يجب تسجيل الدخول أولاً");
+      setShowLogin(true);
+      return;
+    }
+
+    if (!cart.length || !paymentMethod) return;
+
+    setPaymentLoading(true);
+    setPaymentError("");
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+
+      if (!accessToken) {
+        throw new Error("انتهت جلسة تسجيل الدخول");
+      }
+
+      const response = await fetch(
+        "https://ixliaqeyrsuclsyymvel.supabase.co/functions/v1/create-order",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            payment_method: paymentMethod,
+            items: cart.map((item) => ({
+              product_id: item.id,
+              quantity: 1,
+            })),
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result?.error || "تعذر إنشاء الطلب");
+      }
+
+      console.log("ORDER CREATED:", result.order);
+
+      setMoyasarOrder(result.order);
+      setMoyasarOpen(true);
+      setPaymentError("");
+    } catch (error) {
+      console.error("PAYMENT ERROR:", error);
+      setPaymentError(error?.message || "حدث خطأ أثناء إنشاء الطلب");
+    } finally {
+      setPaymentLoading(false);
+    }
+  }
+
+  React.useEffect(() => {
+    async function verifyPaymentReturn() {
+      const params = new URLSearchParams(window.location.search);
+      const paymentReturn = params.get("payment_return");
+      const orderId = params.get("order_id");
+      const paymentId = params.get("id");
+
+      if (paymentReturn !== "1" || !orderId || !paymentId) return;
+
+      try {
+        setPaymentLoading(true);
+        setPaymentError("");
+
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData?.session?.access_token;
+
+        if (!accessToken) {
+          throw new Error("انتهت جلسة تسجيل الدخول");
+        }
+
+        const response = await fetch(
+          "https://ixliaqeyrsuclsyymvel.supabase.co/functions/v1/verify-payment",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({
+              order_id: orderId,
+              payment_id: paymentId,
+            }),
+          }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok || !result?.success) {
+          throw new Error(
+            result?.error || "تعذر التحقق من عملية الدفع"
+          );
+        }
+
+        alert(`تم الدفع بنجاح للطلب رقم ${orderId}`);
+
+        setCart([]);
+        setPaymentMethod("");
+        setCartOpen(false);
+        setMoyasarOpen(false);
+        setMoyasarOrder(null);
+
+        window.history.replaceState(
+          {},
+          document.title,
+          window.location.pathname
+        );
+      } catch (error) {
+        console.error("PAYMENT VERIFY ERROR:", error);
+        setPaymentError(
+          error?.message || "تعذر التحقق من عملية الدفع"
+        );
+      } finally {
+        setPaymentLoading(false);
+      }
+    }
+
+    verifyPaymentReturn();
+  }, []);
+
+  React.useEffect(() => {
+    if (!moyasarOpen || !moyasarOrder || !window.Moyasar) return;
+
+    const amount = Math.round(Number(moyasarOrder.total || 0) * 100);
+
+    if (amount < 100) {
+      setPaymentError("الحد الأدنى للدفع هو 1 SAR");
+      return;
+    }
+
+    const formElement = document.querySelector(".mysr-form");
+    if (!formElement) return;
+
+    formElement.innerHTML = "";
+
+    const publishableKey =
+      import.meta.env.VITE_MOYASAR_PUBLISHABLE_KEY;
+
+    if (!publishableKey) {
+      setPaymentError("مفتاح Moyasar غير موجود");
+      return;
+    }
+
+    const baseConfig = {
+      element: ".mysr-form",
+      amount,
+      currency: "SAR",
+      description: `طلب متجرنا #${moyasarOrder.id}`,
+      publishable_api_key: publishableKey,
+      language: "ar",
+      metadata: {
+        order_id: String(moyasarOrder.id),
+      },
+      callback_url:
+        `${window.location.origin}/?payment_return=1&order_id=${encodeURIComponent(
+          moyasarOrder.id
+        )}`,
+      on_completed: function (payment) {
+        console.log("MOYASAR PAYMENT COMPLETED:", payment);
+      },
+      on_failure: function (error) {
+        console.error("MOYASAR PAYMENT FAILED:", error);
+        setPaymentError("تعذر إتمام عملية الدفع");
+      },
+    };
+
+    if (paymentMethod === "mada") {
+      baseConfig.methods = ["creditcard"];
+      baseConfig.supported_networks = ["mada"];
+    } else if (paymentMethod === "visa") {
+      baseConfig.methods = ["creditcard"];
+      baseConfig.supported_networks = ["visa"];
+    } else if (paymentMethod === "apple") {
+      baseConfig.methods = ["applepay"];
+      baseConfig.apple_pay = {
+        country: "SA",
+        label: "متجرنا",
+        validate_merchant_url:
+          "https://api.moyasar.com/v1/applepay/initiate",
+      };
+    } else {
+      setPaymentError("وسيلة الدفع هذه لا تستخدم Moyasar حاليًا");
+      return;
+    }
+
+    try {
+      window.Moyasar.init(baseConfig);
+    } catch (error) {
+      console.error("MOYASAR INIT ERROR:", error);
+      setPaymentError("تعذر فتح بوابة الدفع");
+    }
+  }, [moyasarOpen, moyasarOrder, paymentMethod]);
+
   if (showAdmin) {
     return (
       <AdminDashboard
@@ -251,7 +457,11 @@ function App() {
         <div className="header-actions">
           <button className="icon-button">⌕</button>
 
-          <button className="cart-button">
+          <button
+            type="button"
+            className="cart-button"
+            onClick={() => setCartOpen(true)}
+          >
             🛒
             {cart.length > 0 && <b>{cart.length}</b>}
           </button>
@@ -391,6 +601,284 @@ function App() {
           </div>
         </section>
       </main>
+
+      {cartOpen && (
+        <div
+          dir="rtl"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9997,
+            background: "#fff",
+            padding: "24px 20px",
+            overflowY: "auto",
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setCartOpen(false)}
+            style={{
+              border: 0,
+              background: "none",
+              fontSize: "28px",
+              cursor: "pointer",
+            }}
+          >
+            ×
+          </button>
+
+          <div style={{ maxWidth: "600px", margin: "20px auto" }}>
+            <h2 style={{ textAlign: "center" }}>🛒 سلة المشتريات</h2>
+
+            {cart.length === 0 ? (
+              <p style={{ textAlign: "center", marginTop: "50px" }}>
+                السلة فارغة
+              </p>
+            ) : (
+              <>
+                {cart.map((item, index) => (
+                  <div
+                    key={`${item.id}-${index}`}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "14px",
+                      marginBottom: "10px",
+                      background: "#f8f8ff",
+                      borderRadius: "14px",
+                    }}
+                  >
+                    <div>
+                      <strong>{item.name}</strong>
+                      <div>SAR {item.price}</div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCart((current) =>
+                          current.filter((_, i) => i !== index)
+                        )
+                      }
+                    >
+                      حذف
+                    </button>
+                  </div>
+                ))}
+
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    marginTop: "20px",
+                    fontWeight: "700",
+                  }}
+                >
+                  <span>الإجمالي</span>
+                  <span>
+                    SAR{" "}
+                    {cart.reduce(
+                      (total, item) => total + Number(item.price || 0),
+                      0
+                    )}
+                  </span>
+                </div>
+
+                <div
+                  style={{
+                    marginTop: "28px",
+                    paddingTop: "20px",
+                    borderTop: "1px solid #eee",
+                  }}
+                >
+                  <h3 style={{ marginBottom: "14px" }}>
+                    💳 اختر وسيلة الدفع
+                  </h3>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: "10px",
+                    }}
+                  >
+                    {[
+                      ["mada", "💳 مدى"],
+                      ["visa", "💳 Visa"],
+                      ["apple", " Apple Pay"],
+                      ["stc", "🏦 STC Bank"],
+                      ["bank", "🏦 تحويل بنكي"],
+                    ].map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setPaymentMethod(value)}
+                        style={{
+                          padding: "14px 10px",
+                          borderRadius: "14px",
+                          border:
+                            paymentMethod === value
+                              ? "2px solid #4f46e5"
+                              : "1px solid #ddd",
+                          background:
+                            paymentMethod === value
+                              ? "#eef2ff"
+                              : "#fff",
+                          fontWeight: "700",
+                          cursor: "pointer",
+                        }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {paymentMethod && (
+                    <>
+                      {paymentError && (
+                        <div
+                          style={{
+                            marginTop: "12px",
+                            padding: "10px",
+                            borderRadius: "12px",
+                            background: "#fff1f2",
+                            color: "#be123c",
+                            textAlign: "center",
+                            fontWeight: "600",
+                          }}
+                        >
+                          {paymentError}
+                        </div>
+                      )}
+
+                      <button
+                        type="button"
+                        className="primary-button"
+                        disabled={!paymentMethod || paymentLoading}
+                        onClick={handlePayment}
+                        style={{
+                          width: "100%",
+                          marginTop: "18px",
+                          opacity: paymentMethod && !paymentLoading ? 1 : 0.5,
+                        }}
+                      >
+                        {paymentLoading
+                          ? "جاري إنشاء الطلب..."
+                          : "متابعة الدفع ←"}
+                      </button>
+                    </>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {moyasarOpen && moyasarOrder && (
+        <div
+          dir="rtl"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 3000,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "16px",
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: "520px",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              background: "#fff",
+              borderRadius: "22px",
+              padding: "20px",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "16px",
+              }}
+            >
+              <div>
+                <strong style={{ fontSize: "20px" }}>
+                  💳 إتمام الدفع
+                </strong>
+                <div
+                  style={{
+                    marginTop: "5px",
+                    color: "#666",
+                    fontSize: "13px",
+                  }}
+                >
+                  الطلب #{moyasarOrder.id}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMoyasarOpen(false);
+                  setMoyasarOrder(null);
+                  setPaymentError("");
+                }}
+                style={{
+                  border: "0",
+                  background: "#f3f4f6",
+                  borderRadius: "12px",
+                  width: "40px",
+                  height: "40px",
+                  fontSize: "20px",
+                  cursor: "pointer",
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div
+              style={{
+                background: "#f8f8ff",
+                borderRadius: "14px",
+                padding: "12px",
+                marginBottom: "16px",
+                textAlign: "center",
+                fontWeight: "700",
+              }}
+            >
+              الإجمالي: SAR {moyasarOrder.total}
+            </div>
+
+            {paymentError && (
+              <div
+                style={{
+                  marginBottom: "12px",
+                  padding: "10px",
+                  borderRadius: "12px",
+                  background: "#fff1f2",
+                  color: "#be123c",
+                  textAlign: "center",
+                  fontWeight: "600",
+                }}
+              >
+                {paymentError}
+              </div>
+            )}
+
+            <div className="mysr-form"></div>
+          </div>
+        </div>
+      )}
 
       {showAccount && user && (
         <div
